@@ -31,7 +31,7 @@ proc generateCmakelistsTxt*(settings: Settings) =
 
   # generate compile_commands.json
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-  """.fmt.dedent)
+  """.dedent)
 
   if settings.useMingw:
     f.writeLine("""
