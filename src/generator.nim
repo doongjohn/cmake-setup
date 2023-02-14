@@ -33,6 +33,7 @@ proc generateCmakelistsTxt*(settings: Settings) =
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
   """.dedent)
 
+  # TODO: make mingw path configurable
   if settings.useMingw:
     f.writeLine("""
     # set target operating to windows
@@ -71,8 +72,8 @@ proc generateCmakelistsTxt*(settings: Settings) =
     # https://github.com/cpm-cmake/CPM.cmake/wiki/More-Snippets
     """.dedent)
 
+  # create target
   f.writeLine("set(TARGET_NAME {settings.targetName})\n".fmt)
-
   case settings.targetType
   of "exe":
     f.writeLine("""
@@ -94,23 +95,28 @@ proc generateCmakelistsTxt*(settings: Settings) =
     add_library(${TARGET_NAME} INTERFACE)
     """.dedent)
 
+  # set language standard
   f.writeLine("""
   target_compile_features(${{TARGET_NAME}}
     PRIVATE {settings.targetStandardVersion})
   """.fmt.dedent)
 
+  # use sanitizers for debug build
   f.writeLine("""
   target_compile_options(${TARGET_NAME}
-    PRIVATE -fno-omit-frame-pointer
-    PRIVATE -fno-sanitize-recover=all
-    PRIVATE -fsanitize=address,undefined)
+    PRIVATE
+      $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+      $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
+      $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 
   target_link_options(${TARGET_NAME}
-    PRIVATE -fno-omit-frame-pointer
-    PRIVATE -fno-sanitize-recover=all
-    PRIVATE -fsanitize=address,undefined)
+    PRIVATE
+      $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+      $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
+      $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
   """.dedent)
 
+  # include directories
   case settings.targetType
   of "header-only":
     f.writeLine("""
@@ -123,6 +129,7 @@ proc generateCmakelistsTxt*(settings: Settings) =
     #   PRIVATE ${PROJECT_SOURCE_DIR}/include)
     """.dedent)
 
+  # link libraries
   f.writeLine("""
   # target_link_libraries(${TARGET_NAME}
   #   library_name)
