@@ -106,12 +106,14 @@ proc generateCmakelistsTxt*(settings: Settings) =
   f.writeLine("""
   target_compile_options(${TARGET_NAME}
     PRIVATE
+      -Wall
       $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
       $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
       $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 
   target_link_options(${TARGET_NAME}
     PRIVATE
+      -Wall
       $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
       $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
       $<$<CONFIG:Debug>:-fsanitize=address,undefined>)

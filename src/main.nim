@@ -5,15 +5,18 @@ import
   generator
 
 
+# More Modern CMake
+# https://hsf-training.github.io/hsf-training-cmake-webpage/index.html
+# https://www.youtube.com/watch?v=y7ndUhdQuU8
+
 # Effective Modern CMake
 # https://gist.github.com/mbinna/c61dbb39bca0e4fb7d1f73b0d66a4fd1
 
-# LEARN: cmake build type
+# cmake build types
 # https://blog.feabhas.com/2021/07/cmake-part-2-release-and-debug-builds/
-# https://stackoverflow.com/questions/7724569/debug-vs-release-in-cmake
 
-# LEARN: cmake generator expression
-# https://stackoverflow.com/questions/58729233/what-is-the-use-case-for-generator-expression-on-target-include-directories
+# cmake generator expression
+# https://junstar92.tistory.com/214
 
 
 proc main =
