@@ -75,9 +75,8 @@ proc runInteractivePrompt*: Settings =
 
   let useMingwInput = completion(["true", "false"]):
     readLine("use mingw: ", "false")
+  result.useMingw = useMingwInput == "true"
 
   let useCpmInput = completion(["true", "false"]):
     readLine("use CPM: ", "true")
-
-  result.useMingw = useMingwInput == "true"
   result.useCpm = useCpmInput == "true"
