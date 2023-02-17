@@ -102,11 +102,12 @@ proc generateCmakelistsTxt*(settings: Settings) =
     PRIVATE {settings.targetStandardVersion})
   """.fmt().dedent())
 
-  # use sanitizers (only for debug build)
+  # compiler and linker options
   f.writeLine("""
   target_compile_options(${TARGET_NAME}
     PRIVATE
       -Wall
+      $<$<CONFIG:Release>:-flto>
       $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
       $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
       $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
@@ -114,6 +115,7 @@ proc generateCmakelistsTxt*(settings: Settings) =
   target_link_options(${TARGET_NAME}
     PRIVATE
       -Wall
+      $<$<CONFIG:Release>:-flto>
       $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
       $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
       $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
