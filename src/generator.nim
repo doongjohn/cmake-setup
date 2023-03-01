@@ -29,11 +29,19 @@ proc generateCmakelistsTxt*(settings: Settings) =
   f.writeLine("""
   cmake_minimum_required(VERSION 3.25)
 
+  # enable compiler diagnostic color
+  add_compile_options(
+    $<$<C_COMPILER_ID:GNU>:-fdiagnostics-color>
+    $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color>
+    $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>
+    $<$<C_COMPILER_ID:Clang>:-fcolor-diagnostics>)
+
   # generate compile_commands.json
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
   """.dedent())
 
   # TODO: make mingw path configurable
+  # TODO: use CMAKE_TOOLCHAIN_FILE
   if settings.useMingw:
     f.writeLine("""
     # set target operating to windows
@@ -104,21 +112,29 @@ proc generateCmakelistsTxt*(settings: Settings) =
 
   # compiler and linker options
   f.writeLine("""
+  set(RELEASE_OPTIONS
+    -Wall
+    -Wextra
+    -flto
+  )
+
+  set(DEBUG_OPTIONS
+    -Wall
+    -Wextra
+    -fno-omit-frame-pointer
+    -fno-sanitize-recover=all
+    -fsanitize=address,undefined
+  )
+
   target_compile_options(${TARGET_NAME}
     PRIVATE
-      -Wall
-      $<$<CONFIG:Release>:-flto>
-      $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
-      $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
-      $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+    $<$<CONFIG:Release>:${RELEASE_OPTIONS}>
+    $<$<CONFIG:Debug>:${DEBUG_OPTIONS}>)
 
   target_link_options(${TARGET_NAME}
     PRIVATE
-      -Wall
-      $<$<CONFIG:Release>:-flto>
-      $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
-      $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
-      $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+    $<$<CONFIG:Release>:${RELEASE_OPTIONS}>
+    $<$<CONFIG:Debug>:${DEBUG_OPTIONS}>)
   """.dedent())
 
   # include directories (commented)
