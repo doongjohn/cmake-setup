@@ -1,5 +1,7 @@
 type
   Settings* = object
+    cmakeVersion*: string
+
     projectName*: string
     projectVersion*: string
     projectDesc*: string

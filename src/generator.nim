@@ -27,18 +27,18 @@ proc generateCmakelistsTxt*(settings: Settings) =
   defer: f.close()
 
   f.writeLine("""
-  cmake_minimum_required(VERSION 3.25)
+  cmake_minimum_required(VERSION {settings.cmakeVersion})
 
   # enable compiler diagnostic color
   add_compile_options(
     $<$<C_COMPILER_ID:GNU>:-fdiagnostics-color>
     $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color>
-    $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>
-    $<$<C_COMPILER_ID:Clang>:-fcolor-diagnostics>)
+    $<$<C_COMPILER_ID:Clang>:-fcolor-diagnostics>
+    $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>)
 
   # generate compile_commands.json
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-  """.dedent())
+  """.fmt().dedent())
 
   # TODO: make mingw path configurable
   # TODO: use CMAKE_TOOLCHAIN_FILE
@@ -92,7 +92,7 @@ proc generateCmakelistsTxt*(settings: Settings) =
   of "shared-lib":
     f.writeLine("""
     file(GLOB_RECURSE SRC_FILES src/*.{srcExtension})
-    add_library(${{TARGET_NAME}} ${{SRC_FILES}})
+    add_library(${{TARGET_NAME}} SHARED ${{SRC_FILES}})
     """.fmt().dedent())
   of "static-lib":
     f.writeLine("""
@@ -149,6 +149,12 @@ proc generateCmakelistsTxt*(settings: Settings) =
     # target_include_directories(${TARGET_NAME}
     #   PRIVATE ${PROJECT_SOURCE_DIR}/include)
     """.dedent())
+
+  # compile definition (commented)
+  f.writeLine("""
+  # target_compile_definition(${TARGET_NAME}
+  #   PRIVATE SOMETHING=1)
+  """.dedent())
 
   # link libraries (commented)
   f.writeLine("""
