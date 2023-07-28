@@ -25,7 +25,7 @@ proc main =
     return
 
   let settings = runInteractivePrompt()
-  generateCmakelistsTxt(settings)
+  settings.generateCmakeListsTxt()
 
 
 main()

@@ -30,13 +30,11 @@ template completion(list: openArray[string], body: untyped): string =
 
 
 proc runInteractivePrompt*: Settings =
-  result.projectName = readLine("cmake version: ", "3.25")
-
+  result.projectName = readLine("cmake version: ", "3.27")
   result.projectName = readLine("project name: ", getCurrentDir().lastPathPart())
   result.projectVersion = readLine("project version: ", "0.1.0")
   result.projectDesc = readLine("project desc: ")
   result.projectHomepage = readLine("project homepage: ")
-
   result.targetName = readLine("target name: ", result.projectName)
 
   # TODO: use promt list
@@ -75,10 +73,6 @@ proc runInteractivePrompt*: Settings =
   else:
     ""
 
-  let useMingwInput = completion(["true", "false"]):
-    readLine("use mingw: ", "false")
-  result.useMingw = useMingwInput == "true"
-
-  let useCpmInput = completion(["true", "false"]):
+  let inputUseCpm = completion(["true", "false"]):
     readLine("use CPM: ", "true")
-  result.useCpm = useCpmInput == "true"
+  result.useCpm = inputUseCpm == "true"

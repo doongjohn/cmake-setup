@@ -9,19 +9,25 @@ import puppy
 import settingstype
 
 
-proc generateCmakelistsTxt*(settings: Settings) =
+proc generateCmakeListsTxt*(settings: Settings) =
+  # download CPM.cmake
   if settings.useCpm:
     createDir("cmake")
     let cpmCmakeFile = open("cmake/CPM.cmake", fmWrite)
     defer: cpmCmakeFile.close()
 
-    let latestReleaseJson = parseJson(fetch("https://api.github.com/repos/cpm-cmake/CPM.cmake/releases/latest"))
-    let cpmLatestVersion = latestReleaseJson["tag_name"].getStr()
-    let cpmDownloadUrl = latestReleaseJson["assets"][0]["browser_download_url"].getStr()
+    try:
+      let cpmLatestRelease = parseJson(fetch("https://api.github.com/repos/cpm-cmake/CPM.cmake/releases/latest"))
+      let cpmLatestVersion = cpmLatestRelease["tag_name"].getStr()
+      let cpmDownloadUrl = cpmLatestRelease["assets"][0]["browser_download_url"].getStr()
 
-    echo "download: CPM {cpmLatestVersion} -> ./cmake/CPM.cmake".fmt()
-    cpmCmakeFile.write(fetch(cpmDownloadUrl))
+      echo "download: CPM {cpmLatestVersion} ...".fmt()
+      cpmCmakeFile.write(fetch(cpmDownloadUrl))
+      echo "download: CPM {cpmLatestVersion} -> ./cmake/CPM.cmake"
+    except:
+      echo "Error: ", getCurrentExceptionMsg()
 
+  # create CMakeLists.txt
   echo "output: CMakeLists.txt"
   let f = open("CMakeLists.txt", fmWrite)
   defer: f.close()
@@ -29,42 +35,10 @@ proc generateCmakelistsTxt*(settings: Settings) =
   f.writeLine("""
   cmake_minimum_required(VERSION {settings.cmakeVersion})
 
-  # enable compiler diagnostic color
-  add_compile_options(
-    $<$<C_COMPILER_ID:GNU>:-fdiagnostics-color>
-    $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color>
-    $<$<C_COMPILER_ID:Clang>:-fcolor-diagnostics>
-    $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>)
-
-  # generate compile_commands.json
+  # generate `compile_commands.json` (only for make and ninja)
+  # ln -s build/compile_commands.json compile_commands.json
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-  """.fmt().dedent())
 
-  # TODO: make mingw path configurable
-  # TODO: use CMAKE_TOOLCHAIN_FILE
-  if settings.useMingw:
-    f.writeLine("""
-    # set target operating to windows
-    set(CMAKE_SYSTEM_NAME Windows)
-
-    # set compiler to mingw
-    set(CMAKE_C_COMPILER /usr/bin/x86_64-w64-mingw32-gcc)
-    set(CMAKE_CXX_COMPILER /usr/bin/x86_64-w64-mingw32-g++)
-    set(CMAKE_RC_COMPILER /usr/bin/x86_64-w64-mingw32-windres)
-
-    # where is the target environment located
-    set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
-
-    # adjust the default behavior of the FIND_XXX() commands:
-    # search programs in the host environment
-    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-
-    # search headers and libraries in the target environment
-    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-    """.dedent())
-
-  f.writeLine("""
   project(
     {settings.projectName}
     VERSION {settings.projectVersion}
@@ -80,84 +54,93 @@ proc generateCmakelistsTxt*(settings: Settings) =
     # https://github.com/cpm-cmake/CPM.cmake/wiki/More-Snippets
     """.dedent())
 
-  # create target
-  f.writeLine("set(TARGET_NAME {settings.targetName})\n".fmt())
-  let srcExtension = if settings.targetLanguage == "C": "c" else: "cpp"
+  # create a target
+  let srcExt = if settings.targetLanguage == "C": "c" else: "cpp"
+  let headerExt = if settings.targetLanguage == "C": "h" else: "hpp"
   case settings.targetType
   of "exe":
     f.writeLine("""
-    file(GLOB_RECURSE SRC_FILES src/*.{srcExtension})
-    add_executable(${{TARGET_NAME}} ${{SRC_FILES}})
+    add_executable({settings.targetName} "")
     """.fmt().dedent())
   of "shared-lib":
     f.writeLine("""
-    file(GLOB_RECURSE SRC_FILES src/*.{srcExtension})
-    add_library(${{TARGET_NAME}} SHARED ${{SRC_FILES}})
+    add_library({settings.targetName} SHARED "")
     """.fmt().dedent())
   of "static-lib":
     f.writeLine("""
-    file(GLOB_RECURSE SRC_FILES src/*.{srcExtension})
-    add_library(${{TARGET_NAME}} STATIC ${{SRC_FILES}})
+    add_library({settings.targetName} STATIC "")
     """.fmt().dedent())
   of "header-only":
     f.writeLine("""
-    add_library(${TARGET_NAME} INTERFACE)
+    add_library({settings.targetName} INTERFACE)
     """.dedent())
 
-  # set language standard
   f.writeLine("""
-  target_compile_features(${{TARGET_NAME}}
+  set_target_properties({settings.targetName}
+    PROPERTIES # https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html
+    OUTPUT_NAME {settings.targetName})
+
+  target_compile_features({settings.targetName}
     PRIVATE {settings.targetStandardVersion})
+
+  # target_compile_definitions({settings.targetName}
+  #   PRIVATE HELLO=1)
   """.fmt().dedent())
+
+  if settings.targetType != "header-only":
+    f.writeLine("""
+    file(GLOB_RECURSE SRC_FILES
+      src/*.{srcExt}
+      src/*.{headerExt})
+    target_sources({settings.targetName}
+      PRIVATE ${{SRC_FILES}})
+
+    # target_include_directories({settings.targetName}
+    #   PRIVATE ${{PROJECT_SOURCE_DIR}}/include)
+
+    # target_link_libraries({settings.targetName}
+    #   library_name)
+    """.fmt().dedent())
+  else:
+    f.writeLine("""
+    # target_include_directories({settings.targetName}
+    #   INTERFACE ${PROJECT_SOURCE_DIR}/include)
+    """.dedent())
 
   # compiler and linker options
   f.writeLine("""
-  set(RELEASE_OPTIONS
-    -Wall
-    -Wextra
-    -flto
-  )
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options({settings.targetName}
+      PRIVATE
+        # use colored output
+        $<$<C_COMPILER_ID:GNU>:-fdiagnostics-color>
+        $<$<C_COMPILER_ID:Clang>:-fcolor-diagnostics>
+        $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color>
+        $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>
+        # more warnings
+        -Wall -Wextra)
 
-  set(DEBUG_OPTIONS
-    -Wall
-    -Wextra
-    -fno-omit-frame-pointer
-    -fno-sanitize-recover=all
-    -fsanitize=address,undefined
-  )
+    if (NOT WIN32)
+      # use sanitizers
+      set(SANITIZER_OPTIONS
+        $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+        $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
+        $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+      target_compile_options({settings.targetName}
+        PRIVATE ${{SANITIZER_OPTIONS}})
+      target_link_options({settings.targetName}
+        PRIVATE ${{SANITIZER_OPTIONS}})
+    endif()
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # msvc compiler options: https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category
+    target_compile_options({settings.targetName}
+      PRIVATE
+        # more warnings
+        /W4 /sdl)
 
-  target_compile_options(${TARGET_NAME}
-    PRIVATE
-    $<$<CONFIG:Release>:${RELEASE_OPTIONS}>
-    $<$<CONFIG:Debug>:${DEBUG_OPTIONS}>)
-
-  target_link_options(${TARGET_NAME}
-    PRIVATE
-    $<$<CONFIG:Release>:${RELEASE_OPTIONS}>
-    $<$<CONFIG:Debug>:${DEBUG_OPTIONS}>)
-  """.dedent())
-
-  # include directories (commented)
-  case settings.targetType
-  of "header-only":
-    f.writeLine("""
-    # target_include_directories(${TARGET_NAME}
-    #   INTERFACE ${PROJECT_SOURCE_DIR}/include)
-    """.dedent())
-  else:
-    f.writeLine("""
-    # target_include_directories(${TARGET_NAME}
-    #   PRIVATE ${PROJECT_SOURCE_DIR}/include)
-    """.dedent())
-
-  # compile definition (commented)
-  f.writeLine("""
-  # target_compile_definition(${TARGET_NAME}
-  #   PRIVATE SOMETHING=1)
-  """.dedent())
-
-  # link libraries (commented)
-  f.writeLine("""
-  # target_link_libraries(${TARGET_NAME}
-  #   library_name)
-  """.dedent())
+    # msvc linker options: https://learn.microsoft.com/en-us/cpp/build/reference/linker-options
+    # target_link_options({settings.targetName}
+    #   PRIVATE
+    #     /VERBOSE)
+  endif()
+  """.fmt().dedent())

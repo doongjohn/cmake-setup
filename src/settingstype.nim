@@ -12,5 +12,4 @@ type
     targetLanguage*: string
     targetStandardVersion*: string
 
-    useMingw*: bool
     useCpm*: bool
