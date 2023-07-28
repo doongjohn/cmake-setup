@@ -30,7 +30,7 @@ template completion(list: openArray[string], body: untyped): string =
 
 
 proc runInteractivePrompt*: Settings =
-  result.projectName = readLine("cmake version: ", "3.27")
+  result.cmakeVersion = readLine("cmake version: ", "3.27")
   result.projectName = readLine("project name: ", getCurrentDir().lastPathPart())
   result.projectVersion = readLine("project version: ", "0.1.0")
   result.projectDesc = readLine("project desc: ")
