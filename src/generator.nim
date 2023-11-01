@@ -39,6 +39,9 @@ proc generateCmakeListsTxt*(settings: Settings) =
   # ln -s build/compile_commands.json compile_commands.json
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+  # Enable colored output for GNU/Clang compilers
+  set(CMAKE_COLOR_DIAGNOSTICS ON)
+
   project(
     {settings.projectName}
     VERSION {settings.projectVersion}
@@ -75,31 +78,18 @@ proc generateCmakeListsTxt*(settings: Settings) =
     add_library({settings.targetName} INTERFACE)
     """.dedent())
 
-  f.writeLine("""
-  set_target_properties({settings.targetName}
-    PROPERTIES # https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html
-    OUTPUT_NAME {settings.targetName})
-
-  target_compile_features({settings.targetName}
-    PRIVATE {settings.targetStandardVersion})
-
-  # target_compile_definitions({settings.targetName}
-  #   PRIVATE HELLO=1)
-  """.fmt().dedent())
-
   if settings.targetType != "header-only":
     f.writeLine("""
-    file(GLOB_RECURSE SRC_FILES
-      src/*.{srcExt}
-      src/*.{headerExt})
-    target_sources({settings.targetName}
-      PRIVATE ${{SRC_FILES}})
+    set_target_properties({settings.targetName}
+      PROPERTIES # https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html
+      # EXCLUDE_FROM_ALL true
+      OUTPUT_NAME {settings.targetName})
+
+    target_compile_features({settings.targetName}
+      PRIVATE {settings.targetStandardVersion})
 
     # target_include_directories({settings.targetName}
     #   PRIVATE ${{PROJECT_SOURCE_DIR}}/include)
-
-    # target_link_libraries({settings.targetName}
-    #   library_name)
     """.fmt().dedent())
   else:
     f.writeLine("""
@@ -107,40 +97,48 @@ proc generateCmakeListsTxt*(settings: Settings) =
     #   INTERFACE ${PROJECT_SOURCE_DIR}/include)
     """.dedent())
 
-  # compiler and linker options
   f.writeLine("""
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    target_compile_options({settings.targetName}
-      PRIVATE
-        # use colored output
-        $<$<C_COMPILER_ID:GNU>:-fdiagnostics-color>
-        $<$<C_COMPILER_ID:Clang>:-fcolor-diagnostics>
-        $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color>
-        $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>
-        # more warnings
-        -Wall -Wextra)
+  # target_compile_definitions({settings.targetName}
+  #   PRIVATE HELLO=1)
+  """.fmt().dedent())
 
-    if (NOT WIN32)
-      # use sanitizers
+  if settings.targetType != "header-only":
+    f.writeLine("""
+    file(GLOB_RECURSE SOURCES
+      src/*.{srcExt}
+      src/*.{headerExt})
+    target_sources({settings.targetName}
+      PRIVATE ${{SOURCES}})
+
+    # target_link_libraries({settings.targetName}
+    #   library_name)
+
+    # use sanitizers
+    if (NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
       set(SANITIZER_OPTIONS
         $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
         $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
         $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-      target_compile_options({settings.targetName}
-        PRIVATE ${{SANITIZER_OPTIONS}})
-      target_link_options({settings.targetName}
-        PRIVATE ${{SANITIZER_OPTIONS}})
+      target_compile_options({settings.targetName} PRIVATE ${{SANITIZER_OPTIONS}})
+      target_link_options({settings.targetName} PRIVATE ${{SANITIZER_OPTIONS}})
     endif()
-  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    # msvc compiler options: https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category
-    target_compile_options({settings.targetName}
-      PRIVATE
-        # more warnings
-        /W4 /sdl)
 
-    # msvc linker options: https://learn.microsoft.com/en-us/cpp/build/reference/linker-options
-    # target_link_options({settings.targetName}
-    #   PRIVATE
-    #     /VERBOSE)
-  endif()
-  """.fmt().dedent())
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      target_compile_options({settings.targetName}
+        PRIVATE
+          # more warnings
+          -Wall -Wextra)
+
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+      # msvc compiler options: https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category
+      target_compile_options({settings.targetName}
+        PRIVATE
+          # more warnings
+          /Wall /sdl)
+
+      # msvc linker options: https://learn.microsoft.com/en-us/cpp/build/reference/linker-options
+      # target_link_options({settings.targetName}
+      #   PRIVATE
+      #     /VERBOSE)
+    endif()
+    """.fmt().dedent())
