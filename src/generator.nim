@@ -1,11 +1,8 @@
-import
-  std/os,
-  std/strutils,
-  std/strformat,
-  std/json
-
-import puppy
-
+import std/os
+import std/strutils
+import std/strformat
+import std/json
+import pkg/puppy
 import settingstype
 
 
@@ -35,11 +32,7 @@ proc generateCmakeListsTxt*(settings: Settings) =
   f.writeLine("""
   cmake_minimum_required(VERSION {settings.cmakeVersion})
 
-  # generate `compile_commands.json` (only for make and ninja)
-  # ln -s build/compile_commands.json compile_commands.json
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-  # Enable colored output for GNU/Clang compilers
   set(CMAKE_COLOR_DIAGNOSTICS ON)
 
   project(
@@ -81,26 +74,36 @@ proc generateCmakeListsTxt*(settings: Settings) =
   if settings.targetType != "header-only":
     f.writeLine("""
     set_target_properties({settings.targetName}
-      PROPERTIES # https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html
-      # EXCLUDE_FROM_ALL true
+      PROPERTIES
       OUTPUT_NAME {settings.targetName})
 
     target_compile_features({settings.targetName}
       PRIVATE {settings.targetStandardVersion})
 
+    # use sanitizers
+    if (NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      set(SANITIZER_OPTIONS
+        $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+        $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
+        $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+      target_compile_options(example-app PRIVATE ${{SANITIZER_OPTIONS}})
+      target_link_options(example-app PRIVATE ${{SANITIZER_OPTIONS}})
+    endif()
+
     # target_include_directories({settings.targetName}
     #   PRIVATE ${{PROJECT_SOURCE_DIR}}/include)
+
+    # target_compile_definitions({settings.targetName}
+    #   PRIVATE HELLO=1)
     """.fmt().dedent())
   else:
     f.writeLine("""
     # target_include_directories({settings.targetName}
     #   INTERFACE ${PROJECT_SOURCE_DIR}/include)
-    """.dedent())
 
-  f.writeLine("""
-  # target_compile_definitions({settings.targetName}
-  #   PRIVATE HELLO=1)
-  """.fmt().dedent())
+    # target_compile_definitions({settings.targetName}
+    #   INTERFACE HELLO=1)
+    """.dedent())
 
   if settings.targetType != "header-only":
     f.writeLine("""
@@ -113,32 +116,16 @@ proc generateCmakeListsTxt*(settings: Settings) =
     # target_link_libraries({settings.targetName}
     #   library_name)
 
-    # use sanitizers
-    if (NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-      set(SANITIZER_OPTIONS
-        $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
-        $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
-        $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-      target_compile_options({settings.targetName} PRIVATE ${{SANITIZER_OPTIONS}})
-      target_link_options({settings.targetName} PRIVATE ${{SANITIZER_OPTIONS}})
-    endif()
-
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
       target_compile_options({settings.targetName}
-        PRIVATE
-          # more warnings
-          -Wall -Wextra)
-
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-      # msvc compiler options: https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category
+        # more warnings
+        PRIVATE -Wall
+        PRIVATE -Wextra)
+    endif()
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
       target_compile_options({settings.targetName}
-        PRIVATE
-          # more warnings
-          /Wall /sdl)
-
-      # msvc linker options: https://learn.microsoft.com/en-us/cpp/build/reference/linker-options
-      # target_link_options({settings.targetName}
-      #   PRIVATE
-      #     /VERBOSE)
+        # more warnings
+        PRIVATE /Wall
+        PRIVATE /sdl)
     endif()
     """.fmt().dedent())

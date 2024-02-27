@@ -10,6 +10,6 @@ namedBin["main"] = "cmake-setup"
 
 # Dependencies
 
-requires "nim >= 1.9.1"
+requires "nim >= 2.0.0"
 requires "noise"
 requires "puppy"

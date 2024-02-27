@@ -1,5 +1,6 @@
 import std/os
-import cli, generator
+import cli
+import generator
 
 
 proc main =

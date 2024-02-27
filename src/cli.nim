@@ -1,9 +1,6 @@
-import
-  std/os,
-  std/strutils
-
-import noise as nimnoise
-
+import std/os
+import std/strutils
+import pkg/noise as nimnoise
 import settingstype
 
 
@@ -74,5 +71,5 @@ proc runInteractivePrompt*: Settings =
     ""
 
   let inputUseCpm = completion(["true", "false"]):
-    readLine("use CPM: ", "true")
+    readLine("use CPM: ", "false")
   result.useCpm = inputUseCpm == "true"
